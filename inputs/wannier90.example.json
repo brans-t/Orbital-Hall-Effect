@@ -1,0 +1,10 @@
+{
+  "model": "wannier90",
+  "hr": "wannier90/wannier90_hr.dat",
+  "lattice": "wannier90/lattice.txt",
+  "variant": "covariant",
+  "n_k": 12,
+  "mu": 0.0,
+  "output_dir": "../output/wannier90",
+  "formats": ["csv", "pdf"]
+}

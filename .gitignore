@@ -10,4 +10,5 @@ htmlcov/
 build/
 dist/
 output/
+inputs/wannier90/
 *.tmp

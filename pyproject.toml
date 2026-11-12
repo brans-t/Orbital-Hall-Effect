@@ -27,8 +27,6 @@ dependencies = [
 pythtb = ["pythtb>=1.8"]
 # Plotting / reporting
 plot = ["matplotlib>=3.7"]
-# Large-model caching and Wannier90 file parsing helpers
-io = ["h5py>=3.8"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.1"]
 
 [project.scripts]

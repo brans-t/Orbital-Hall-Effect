@@ -1,0 +1,14 @@
+{
+  "model": "haldane",
+  "t1": 2.8,
+  "t2": 0.0,
+  "mass": 0.25,
+  "phi": 0.0,
+  "nearest_neighbour_distance": 1.42,
+  "variant": "covariant",
+  "n_k": 120,
+  "mu": 0.0,
+  "fermi_range": [-1.5, 1.5, 121],
+  "output_dir": "../output/first-run",
+  "formats": ["csv", "pdf"]
+}

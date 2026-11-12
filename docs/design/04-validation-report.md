@@ -1,189 +1,189 @@
-# 04 · 公式核验报告
+# 04 · Formula verification report
 
-> **历史设计记录：** 本文保留原始设计。关于 Eq. (16b) 符号、相位、Pezo 截断、周期位置算符、单位及部分基准值的结论已在实现阶段校订，以 [05-implementation-notes.md](05-implementation-notes.md) 和可执行测试为准。
+> **Historical design record:** This document preserves the original design. Claims about the Eq. (16b) sign, phases, Pezo truncation, the periodic position operator, units, and some benchmarks were corrected during implementation. [05-implementation-notes.md](05-implementation-notes.md) and the executable tests take precedence.
 
-本文件记录设计阶段对论文公式的独立数值核验。目的不是复现论文图，而是回答"哪条公式可以作为算法的基准"。核验全部在 `numpy` 下进行，与库代码无关（库尚未实现）。
+This document records independent design-phase numerical checks. Their purpose was to identify a reference formula for implementation, not reproduce figures. All checks used `numpy` independently of the library, which was not yet implemented.
 
-结论汇总：
+Original conclusions:
 
-1. **Eq. (16a) 正确**——与 Eq. (2) 的定义逐点吻合，$10^{-15}$ 量级。
-2. **Eq. (16b) 印刷符号有误**——求和项前应为负号，否则与 (16a) 差 $O(1)$。
-3. **对角元需单独给出闭式**——(16b) 只覆盖 $n\ne n'$。
-4. **实空间 oracle 必须先扣对角位置元**——否则得到 $O(10)$ 的伪值。
-5. **Haldane 模型不能漏次近邻实部 $d_0$**——漏掉会使 $L_{12}\equiv0$，与论文 Fig. 1 矛盾。
-6. **二带模型无法检验 (16b) 的求和项**——必须用 3 带以上模型。
+1. **Eq. (16a) agrees with the Eq. (2) definition** pointwise to about $10^{-15}$.
+2. **Historical claim of an Eq. (16b) printing error:** a negative sum sign was proposed; the other sign differed from Eq. (16a) by $O(1)$.
+3. **The diagonal needs its own closed form:** Eq. (16b) was used only for $n\ne n'$.
+4. **Subtract diagonal position elements in the real-space oracle:** retaining them was reported to give $O(10)$ artifacts.
+5. **Retain the Haldane next-nearest-neighbor real term $d_0$:** omitting it gives $L_{12}\equiv0$, contrary to Figure 1.
+6. **Two-band models cannot test the Eq. (16b) sum:** use at least three bands.
 
 ---
 
-## 1. 核验环境与模型
+## 1. Verification environment and models
 
-**Haldane 模型**（论文 Eq. 19）：
+**Haldane model**, paper Eq. (19):
 
 $$\mathcal H = M\sum_i\xi_i c^\dagger_i c_i + t_1\sum_{\langle i,j\rangle}c^\dagger_ic_j + t_2\sum_{\langle\langle i,j\rangle\rangle}e^{i\nu_{ij}\phi}c^\dagger_ic_j$$
 
-参数 $t_1=1$、$t_2=0.15$、$M=0.4$。在 $\{A,B\}$ 二带基下：
+Parameters: $t_1=1$, $t_2=0.15$, $M=0.4$. In the two-band $\{A,B\}$ basis:
 
 $$\mathcal H(\mathbf k)=\begin{pmatrix} d_0+d_z & t_1 f(\mathbf k)\\ t_1 f^*(\mathbf k) & d_0-d_z\end{pmatrix},\quad f=\sum_{i=1}^{3}e^{i\mathbf k\cdot\boldsymbol\delta_i} $$
 
-其中
+where
 
 $$d_0(\mathbf k)=2t_2\cos\phi\sum_{i=1}^{3}\cos(\mathbf k\cdot\mathbf b_i),\qquad d_z(\mathbf k)=M-2t_2\sin\phi\sum_{i=1}^{3}\sin(\mathbf k\cdot\mathbf b_i)$$
 
-$\boldsymbol\delta_i$ 为最近邻矢量，$\mathbf b_i$ 为次近邻矢量。**$d_0$ 项是模型完整性的关键**，见 §5。
+Here $\boldsymbol\delta_i$ are nearest-neighbor vectors and $\mathbf b_i$ next-nearest-neighbor vectors. **The $d_0$ term is essential for completeness**; see §5.
 
-**随机多带模型**（用于检验求和项）：4 带、方格子、含 $+x,+y,+xy,-x+y,+x-y,2x$ 六个方向的随机复跃迁 $t(\mathbf R)$，加上随机厄米在位能。该模型的 $\mathbf v_{nn}$ 之和不恒为零，且求和项非空。
-
----
-
-## 2. Eq. (16a) vs Eq. (2)：通过
-
-在 Haldane 与 3 带/4 带随机模型上，沿 $\Gamma$–K 与多个随机 $\mathbf k$ 点比较 `Eq.(16a) 投影形式` 与 `Eq.(2) 定义式（$r_{nn'}=-iv_{nn'}/(\varepsilon_n-\varepsilon_{n'})$）`：
-
-| 模型 | $\max|L_{16a}-L_{\rm eq2}|$ | 厄米性残差 |
-|---|---|---|
-| Haldane, 4 个 k 点 | $<10^{-8}$（有限差分 $A_n$） | $<10^{-8}$ |
-| 3 带随机, 2 个 k 点 | $9\times10^{-16}$、$3\times10^{-16}$ | $<10^{-10}$ |
-| 4 带随机, 2 个 k 点 | $2.5\times10^{-15}$、$2.2\times10^{-15}$ | $<10^{-15}$ |
-
-结论：**Eq. (16a) 是可靠的基准。** 其矩阵乘法实现（理论文档 §4.3）与逐点定义同精度，可作主路径。
-
-同时确认 Eq. (16a) 的规范不变性：把 $\mathcal A_n$ 平移任意常数矢量 $\mathbf a$（模拟规范变换），$L$ 完全不变（当 $v_{nn}$ 为实数时 $\mathcal A_n$ 项整体抵消）。
+**Random multiband model**, to exercise the sum: four bands on a square lattice, random complex $t(\mathbf R)$ hoppings along six directions $+x,+y,+xy,-x+y,+x-y,2x$, and random Hermitian onsite terms. The sum of $\mathbf v_{nn}$ is not identically zero, and the intermediate-band sum is nonempty.
 
 ---
 
-## 3. Eq. (16b)：印刷符号有误
+## 2. Eq. (16a) versus Eq. (2): passed
 
-### 3.1 现象
+Compare projected Eq. (16a) with the direct Eq. (2) definition using $r_{nn'}=-iv_{nn'}/(\varepsilon_n-\varepsilon_{n'})$, on Haldane and random three-/four-band models along $\Gamma$-K and at random $\mathbf k$ points:
 
-按论文印刷形式实现 (16b)（求和项前为 **+**），与 Eq. (2) 对照：
-
-| 模型 | $\max|L_{16b(+)}-L_{\rm eq2}|$ | $\max|L_{16b(-)}-L_{\rm eq2}|$ |
+| Model | $\max|L_{16a}-L_{\rm eq2}|$ | Hermiticity residual |
 |---|---|---|
-| 3 带随机, k=(0.21,0.37) | $1.24$ | $1.8\times10^{-16}$ |
-| 3 带随机, k=(1.1,−0.8) | $0.83$ | $5.7\times10^{-17}$ |
-| 3 带随机, k=(2.7,0.15) | $0.93$ | $1.3\times10^{-16}$ |
-| 4 带随机, k=(0.23,0.41) | $1.51$ | $1.7\times10^{-8}$ |
+| Haldane, four k points | $<10^{-8}$, with finite-difference $A_n$ | $<10^{-8}$ |
+| Random three-band, two k points | $9\times10^{-16}$, $3\times10^{-16}$ | $<10^{-10}$ |
+| Random four-band, two k points | $2.5\times10^{-15}$, $2.2\times10^{-15}$ | $<10^{-15}$ |
 
-把求和项前的符号改为 **负** 后，残差降到机器精度。**这就是 Eq. (16b) 的正确形式。**
+Conclusion: **Eq. (16a) is a reliable reference.** Its matrix-product implementation, theory §4.3, matches the pointwise definition and can be the main route.
 
-### 3.2 为什么二带模型发现不了
+The original checks shifted $\mathcal A_n$ by an arbitrary constant vector $\mathbf a$ and reported unchanged $L$, attributing this to cancellation of $\mathcal A_n$ terms when $v_{nn}$ is real. The implementation notes clarify the gauge interpretation.
 
-在二带模型中，求和 $\sum_{m\ne n,n'}$ 的指标 $m$ 只有两个取值，而 $n,n'$ 已占满两带，求和为空。因此 (16b) 退化为只剩第一项：
+---
+
+## 3. Eq. (16b): historical sign-error claim
+
+### 3.1 Observation
+
+The original comparison implemented the expression described as printed, with a **+** sum sign, against Eq. (2):
+
+| Model | $\max|L_{16b(+)}-L_{\rm eq2}|$ | $\max|L_{16b(-)}-L_{\rm eq2}|$ |
+|---|---|---|
+| Random three-band, k=(0.21,0.37) | $1.24$ | $1.8\times10^{-16}$ |
+| Random three-band, k=(1.1,-0.8) | $0.83$ | $5.7\times10^{-17}$ |
+| Random three-band, k=(2.7,0.15) | $0.93$ | $1.3\times10^{-16}$ |
+| Random four-band, k=(0.23,0.41) | $1.51$ | $1.7\times10^{-8}$ |
+
+Changing the sum sign to **negative** reduced residuals to machine precision. The report identified this as the correct Eq. (16b); the implementation notes explain the denominator-transcription error behind the finding.
+
+### 3.2 Why two bands cannot distinguish the signs
+
+In a two-band model, $m$ in $\sum_{m\ne n,n'}$ has only two values, already occupied by $n,n'$. The sum is empty, and Eq. (16b) reduces to:
 
 $$L_{nn'}\big|_{\rm 2band}=\frac{i}{2}\cdot\frac{(\mathbf v_{nn}+\mathbf v_{n'n'})\times\mathbf v_{nn'}}{\varepsilon_n-\varepsilon_{n'}}$$
 
-此时正负号无差别。这正是**论文自己用 Haldane（二带）验证却未发现印刷错误**的原因，也是本库测试策略必须以 3 带模型为主的原因。
+The signs are indistinguishable here. The original report used this to explain the paper's Haldane-only validation and motivate three-band tests. Its attribution to a printing error is superseded by the implementation notes.
 
-### 3.3 对 OHC 的后果
+### 3.3 Claimed effect on OHC
 
-符号错误不只是"数值不同"，而是**把 $\sigma^{\rm OH}$ 的符号整个翻转**：
+The historical report claimed that the sign error **reverses $\sigma^{\rm OH}$**, rather than merely changing its magnitude:
 
-| 变体 | $\sigma^{\rm OH}_{xy}$，$\phi=\pi/4$ | $\phi=\pi/2$ |
+| Variant | $\sigma^{\rm OH}_{xy}$ at $\phi=\pi/4$ | $\phi=\pi/2$ |
 |---|---|---|
-| Eq. (2) 定义 | $-0.095$ | $-0.030$ |
-| (16b) 修正符号 | $-0.171$ | $-0.338$ |
-| (16b) 印刷符号 | $+0.166$ | $+0.338$ |
+| Eq. (2) definition | $-0.095$ | $-0.030$ |
+| Eq. (16b), proposed corrected sign | $-0.171$ | $-0.338$ |
+| Eq. (16b), described as printed | $+0.166$ | $+0.338$ |
 
-（单位 $e/2\pi$，$60\times60$ 网格。）论文 Fig. 2 中该区域为**负**值，与修正版一致。因此 OHC 符号是检测该错误的灵敏探针，应入 CI。
+Units: $e/2\pi$, on a $60\times60$ mesh. The report compared these values with the negative region of Figure 2 and proposed polarity as a sensitive CI check. The implementation notes supersede this two-band sign-flip claim.
 
-> **注意**：表中 "Eq. (2) 定义" 与 "(16b) 修正" 在 $\phi=\pi/2$ 处数值不同（$-0.030$ vs $-0.338$），原因是 Eq. (2) 在二带模型下只剩第一项、不含求和项贡献，而 $\phi=\pi/2$ 时两带恰好接触附近有强贡献。这提示**在近简并处只用二带公式会低估 OHC**。主路径应坚持用 (16a)/(16b) 全式。
+> **Historical interpretation:** the table gives different Eq. (2) and proposed Eq. (16b) results at $\phi=\pi/2$: $-0.030$ versus $-0.338$. It attributed this to the empty two-band sum in Eq. (2) and strong contributions near a claimed touching at $\phi=\pi/2$, concluding that **two-band formulas underestimate OHC near degeneracy** and recommending full Eq. (16a)/(16b). These interpretations are retained as history, not current validation results.
 
 ---
 
-## 4. 对角元闭式
+## 4. Closed-form diagonal
 
-(16b) 只给非对角元。对角元由定义推得：
+Eq. (16b) was used for off-diagonal elements. The diagonal follows from the definition:
 
 $$L_{nn}=2\sum_{m\ne n}\frac{\mathrm{Im}\big[v^x_{nm}(v^y_{nm})^*\big]}{\varepsilon_n-\varepsilon_m}$$
 
-在 3 带随机模型上，与 Eq. (2) 的对角元对照（3 个带逐点）：三种写法 $+2\mathrm{Im}$、$-2\mathrm{Im}$、$-\mathrm{Im}[\text{cross}]$ 中，只有 $+2\mathrm{Im}[v^x(v^y)^*]$ 与定义式一致到 $10^{-16}$；其余符号相反。**实现时不要写错这个符号。**
+Compare each band of a random three-band model to the Eq. (2) diagonal. Of $+2\mathrm{Im}$, $-2\mathrm{Im}$, and $-\mathrm{Im}[\text{cross}]$, only $+2\mathrm{Im}[v^x(v^y)^*]$ agreed to $10^{-16}$; the others had the opposite sign. **Preserve this sign in the implementation.**
 
 ---
 
-## 5. Haldane 模型的 $d_0$ 项陷阱
+## 5. The Haldane $d_0$ pitfall
 
-若漏掉次近邻跃迁的实部 $d_0(\mathbf k)$（只保留它贡献的 $d_z$），则 $\mathcal H$ 无迹：
+Omitting the real next-nearest-neighbor contribution $d_0(\mathbf k)$ while retaining only $d_z$ makes $\mathcal H$ traceless:
 
-$$\mathrm{tr}\,\mathcal H=0\;\Longrightarrow\;\mathbf v_{11}+\mathbf v_{22}=0\;\Longrightarrow\;L_{12}\equiv0\ (\text{由 16b 第一项})$$
+$$\mathrm{tr}\,\mathcal H=0\;\Longrightarrow\;\mathbf v_{11}+\mathbf v_{22}=0\;\Longrightarrow\;L_{12}\equiv0\ (\text{from the first term of 16b})$$
 
-数值对照：
+Numerical comparison:
 
-| $k$（沿 $\Gamma$–K） | 含 $d_0$：$|L_{12}|$ | 漏 $d_0$：$|L_{12}|$ | $\|\mathbf v_{11}+\mathbf v_{22}\|$（含/漏） |
+| $k$ along $\Gamma$-K | With $d_0$: $|L_{12}|$ | Without $d_0$: $|L_{12}|$ | $\|\mathbf v_{11}+\mathbf v_{22}\|$, with/without |
 |---|---|---|
 | $0.2\,\Gamma K$ | $0.0064$ | $0$ | $1.15$ / $0$ |
 | $0.4\,\Gamma K$ | $0.0448$ | $0$ | $1.74$ / $0$ |
 | $0.6\,\Gamma K$ | $0.1204$ | $0$ | $1.54$ / $0$ |
 | $0.8\,\Gamma K$ | $0.2011$ | $0$ | $0.79$ / $0$ |
 
-论文 Fig. 1 上半部分显示 $|L_{12}|$ 峰值约 $0.04\hbar$，与含 $d_0$ 的结果同量级。**所以论文是对的，模型的 $d_0$ 项不能省。**
+The upper panel of Figure 1 has a $|L_{12}|$ peak near $0.04\hbar$, comparable in scale to the result with $d_0$. **Retain the $d_0$ term.**
 
-$\Gamma$ 点能带值提供了独立校验：含 $d_0$ 时 $\varepsilon(\Gamma)=\pm3.0265$，漏掉时 $\pm3.0$（$d_z$ 在 $\Gamma$ 点为 $M+4t_2\cos\phi=\sqrt2-0.4$ 附近）。
+The original report proposed a $\Gamma$-point check: $\varepsilon(\Gamma)=\pm3.0265$ with $d_0$ versus $\pm3.0$ without it, describing $d_z$ at $\Gamma$ as near $M+4t_2\cos\phi=\sqrt2-0.4$. These historical energy values are corrected in the implementation notes.
 
 ---
 
-## 6. 有限格点 oracle 的两个陷阱
+## 6. Two finite-lattice oracle pitfalls
 
-在 $N\times N$ PBC 实空间格点上按 Eq. (1) 直接构造 $L$，与 Bloch 公式在可用 $\mathbf k=(m_1,m_2)/N$ 点对照。
+Construct $L$ directly from Eq. (1) on an $N\times N$ periodic real-space lattice and compare to Bloch at allowed $\mathbf k=(m_1,m_2)/N$ points.
 
-**陷阱 A：保留对角位置元会得到伪值。** 实空间 $\mathbf r$ 的对角元是格点绝对坐标（$O(N)$ 量级），它不是 $\mathcal A_n$。若不扣除：
+**Pitfall A: retaining diagonal position elements gives artifacts.** The real-space $\mathbf r$ diagonal contains absolute coordinates of order $O(N)$, not $\mathcal A_n$. Without subtraction, the checks reported:
 
 | $N=24$ | $L_{11}$ | $\max|L_{12}|$ |
 |---|---|---|
-| 保留对角 $\mathbf r$ | $-39.1$（伪值，随 $N$ 变） | $10.5$–$269$ 波动 |
-| 扣除对角 $\mathbf r$ | $0.0000$（正确，$\Gamma$ 点） | 与 Bloch 一致 |
+| Retain diagonal $\mathbf r$ | $-39.1$ artifact, varying with $N$ | Fluctuates from $10.5$ to $269$ |
+| Subtract diagonal $\mathbf r$ | $0.0000$, correct at $\Gamma$ | Agrees with Bloch |
 
-**陷阱 B：格点构建的厄米性。** 手写跃迁时若对 $(i,j,R)$ 只加一半（`H[J,I]+=t` 而不加 `H[I,J]+=conj(t)`），厄米误差可达 $1.0$。正确做法是对每个有向跃迁同时写入共轭转置。
+**Pitfall B: lattice Hermiticity.** Adding only half of $(i,j,R)$, such as `H[J,I]+=t` without `H[I,J]+=conj(t)`, can give Hermiticity error $1.0$. Include conjugate-transpose partners of directed hoppings.
 
-扣除对角元后的实空间结果与 Bloch 公式在能量上严格一致（$\varepsilon$ 差 $<10^{-5}$，来自本征值排序），$L_{11}$ 在 $\Gamma$ 点为 $0$，与对称性要求一致。
+After subtraction, the report found real-space/Bloch energy agreement, with $\varepsilon$ differences $<10^{-5}$ attributed to sorting. It also found $L_{11}$ equal to $0$ at $\Gamma$, as required by symmetry.
 
-> **实现建议**：oracle 的 $\mathbf r$ 矩阵应显式构造为 `r_offdiag = r - diag(diag(r))`，并在函数 docstring 中写明原因。不要提供"保留对角元"的选项——那是纯粹的 bug 源。
+> **Original recommendation:** construct the oracle's $\mathbf r$ as `r_offdiag = r - diag(diag(r))`, document the reason, and provide no option to retain the diagonal. The implementation notes specify the correct basis.
 
 ---
 
-## 7. 对称性与拓扑约束
+## 7. Symmetry and topology constraints
 
-| 检验 | 结果 |
+| Check | Result |
 |---|---|
-| $\phi=0$（$\mathcal T$ 存在）时 $L_{11}(k)=-L_{11}(-k)$ | 精确成立（$\pm0.01109$、$\pm0.16389$），$10^{-16}$ |
-| $\phi=\pi/2$ 时 $|L_{12}|\to0$ | $10^{-17}$ 量级 |
-| $L_{11}=L_{22}$（二带模型） | 精确相等（差 $0$） |
-| 厄米性 $L^\dagger=L$ | $<10^{-15}$ |
-| Chern 数在 $\phi_c=\arcsin[M/(3\sqrt3t_2)]/\pi\approx0.1715\pi$ 翻转 | $0\to-1$，与论文 Fig. 1 inset 一致 |
+| $L_{11}(k)=-L_{11}(-k)$ at $\phi=0$, where $\mathcal T$ is present | Agreement for $\pm0.01109$ and $\pm0.16389$ to $10^{-16}$ |
+| $|L_{12}|\to0$ at $\phi=\pi/2$ | Order $10^{-17}$ |
+| $L_{11}=L_{22}$ in a two-band model | Exactly equal, difference $0$ |
+| Hermiticity $L^\dagger=L$ | $<10^{-15}$ |
+| Chern transition at $\phi_c=\arcsin[M/(3\sqrt3t_2)]/\pi\approx0.1715\pi$ | $0\to-1$, described here as agreeing with the Figure 1 inset |
 
-**Chern 数实现注意**：用 FHS（Fukui–Hatsugai–Suzuki）格点法时，每条 plaquette 的 Berry 相位取对数再求和；若用 $-\arg$ 而非 $\log$ 会差整数倍 $2\pi$。数值中 $0.20\pi$–$0.50\pi$ 稳定给 $-1$，$0$–$0.17\pi$ 给 $0$，与解析相界 $\phi_c=0.1715\pi$ 吻合。
+**Original FHS note:** sum logarithms of the Berry phase on each plaquette. The report claimed that $-\arg$ rather than $\log$ introduces integer multiples of $2\pi$. It obtained $-1$ over $0.20\pi$-$0.50\pi$ and $0$ over $0$-$0.17\pi$, consistent with $\phi_c=0.1715\pi$. The implementation notes correct the arg/log statement.
 
 ---
 
-## 8. 与论文数值的定量对照
+## 8. Quantitative comparison with the paper
 
-在 $\phi=\pi/4$ 下沿 $\Gamma\to K\to K'$ 路径扫描 $k$（$401$ 点），得到：
+At $\phi=\pi/4$, scan $k$ along $\Gamma\to K\to K'$ with $401$ points:
 
-| 量 | 本核验 | 论文 Fig. 1 |
+| Quantity | Original verification | Paper Figure 1 |
 |---|---|---|
-| $\max|L_{12}|$（沿路径） | $0.22\hbar$ | 峰值约 $0.04\hbar$（图示范围） |
-| $L_{11}$ 范围 | $[-14.4, 0]$ | 图中显示 $\approx[-1,1]$ |
+| $\max|L_{12}|$ along the path | $0.22\hbar$ | Peak near $0.04\hbar$ in the displayed range |
+| $L_{11}$ range | $[-14.4, 0]$ | Approximately $\approx[-1,1]$ displayed |
 
-**差异说明**：$L$ 在 $K$ 点附近发散（$\varepsilon_n-\varepsilon_m\to$ 小），路径穿过近简并区时数值会冲出图示范围。论文 Fig. 1 很可能只显示了远离 $K$ 的部分，或对 $y$ 轴做了截断。这不影响公式正确性——三条独立路径互相对照的精度（$10^{-12}$）才是验收标准，绝对幅度受采样点选取影响。
+**Original explanation:** $L$ becomes singular near $K$ as $\varepsilon_n-\varepsilon_m\to$ becomes small, so near-degenerate regions exceed the plotted range. The report suggested Figure 1 excludes part of the region near $K$ or clips its $y$ axis. It prioritized three-path agreement to $10^{-12}$ over amplitudes that depend on sample selection. Later reproduction notes address physical scale assumptions.
 
-**OHC 对照**：$60\times60$ 网格、$E_F=0$、$\phi=\pi/4$ 时本核验给 $\sigma^{\rm OH}\approx-0.17\,e/2\pi$；论文 Fig. 2 在该 $\phi$ 处为负、量级相符。$E_F$ 扫描的形状（论文 Fig. 3 的平台）需完整实现后用更高网格确认。
-
----
-
-## 9. 对架构的硬性约束
-
-从上述核验直接导出的设计约束：
-
-1. `OAMVariant` 必须可插拔（因为至少存在一个印刷错误与一个截断近似需要并列展示）。
-2. 主路径用 Eq. (16a) 的矩阵形式；Eq. (16b) 作交叉验证且**必须用修正符号**。
-3. 对角元单独实现闭式，不并入 (16b)。
-4. `FiniteLattice` 的 $\mathbf r$ 必须先扣对角元，无选项。
-5. 内置 `HaldaneModel` 必须含完整 $d_0(\mathbf k)$，并在测试中锁定 $\varepsilon(\Gamma)$。
-6. 测试集**必须包含 3 带以上随机模型**，否则 (16b) 符号错误无法被检出。
-7. $\sigma^{\rm OH}$ 的符号作为独立断言（修正版为负）。
-8. 近简并点显式标记，不静默截断。
+**Original OHC comparison:** on a $60\times60$ mesh at $E_F=0$ and $\phi=\pi/4$, the report obtained $\sigma^{\rm OH}\approx-0.17\,e/2\pi$, with sign and scale described as matching Figure 2 at that $\phi$. Checking the $E_F$ scan and Figure 3 plateau was deferred to the complete implementation and denser meshes.
 
 ---
 
-## 附录：核验脚本位置
+## 9. Constraints on the architecture
 
-核验脚本为一次性分析代码，未纳入仓库（`/tmp` 下临时目录，随会话销毁）。本文记录的方法、参数与数值结果足以在不重跑的情况下复现结论；待 P1 阶段实现 `tests/test_oam_consistency.py` 时，这些数值将转为可执行的断言。
+Original design constraints from these checks:
+
+1. Make `OAMVariant` pluggable to compare the proposed sign correction and truncated approximation.
+2. Use matrix Eq. (16a) as the main route and Eq. (16b) as a cross-check with the **proposed corrected sign**.
+3. Implement the closed-form diagonal separately from Eq. (16b).
+4. Subtract the diagonal from $\mathbf r$ in `FiniteLattice`, with no opt-out.
+5. Retain full $d_0(\mathbf k)$ in `HaldaneModel` and lock $\varepsilon(\Gamma)$ in tests.
+6. **Include random models with at least three bands** to detect the Eq. (16b) sum-sign difference.
+7. Assert the sign of $\sigma^{\rm OH}$ independently, negative for the proposed correction.
+8. Flag near-degeneracies explicitly rather than silently truncating.
+
+---
+
+## Appendix: verification script location
+
+The checks used one-off scripts not added to the repository. They lived in a temporary `/tmp` directory and expired with the session. This document records their methods, parameters, and reported results. The original plan was to turn those values into executable assertions in `tests/test_oam_consistency.py` during P1.

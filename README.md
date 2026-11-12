@@ -1,25 +1,25 @@
 # Orbital Hall kit (ohk)
 
-按照原设计的 L0–L5 分层实现的 Python 科学计算库：从紧束缚或 Wannier90 Hamiltonian 计算轨道角动量矩阵与轨道霍尔电导，并提供独立的有限周期格点参考计算。
+A Python scientific computing library following the original L0-L5 architecture. It computes orbital angular momentum matrices and orbital Hall conductivity from tight-binding or Wannier90 Hamiltonians, with an independent finite-periodic-lattice reference calculation.
 
-基于 Gautam & Satpathy, [Phys. Rev. B **114**, 214403 (2026)](https://doi.org/10.1103/pd3s-q2z7)。原设计中的分母转写、相位、周期边界与单位问题已校订，详见 [实现与验收记录](docs/design/05-implementation-notes.md)。
+Based on Gautam & Satpathy, [Phys. Rev. B **114**, 214403 (2026)](https://doi.org/10.1103/pd3s-q2z7). Corrections to the original design's denominator transcription, phase conventions, periodic boundaries, and units are documented in the [implementation and validation notes](docs/design/05-implementation-notes.md).
 
-## 实现状态
+## Implementation status
 
-| 阶段 | 已实现 |
+| Stage | Implemented |
 |---|---|
-| P0 | 通用跃迁模型、完整 Haldane 模型、解析导数、本征基、FHS Chern 数 |
-| P1 | 投影形式 OAM、独立有限周期格点参考计算 |
-| P2 | 谱求和、Pezo 截断、ACA，以及三／四带交叉验证 |
-| P3 | Kubo/BZ 积分、费米能扫描、网格收敛序列、显式展宽 |
-| P4 | JSON 报告、CSV 路径扫描、三个命令行入口 |
-| P5 | Wannier90 原生读写、简并权重、三维模型、真实 Fe 数据端到端冒烟验证 |
+| P0 | General hopping models, complete Haldane model, analytic derivatives, eigenbasis, FHS Chern number |
+| P1 | Projected OAM expression and independent finite-periodic-lattice reference |
+| P2 | Spectral sum, Pezo truncation, ACA, and three-/four-band cross-checks |
+| P3 | Kubo/BZ integration, Fermi-energy scans, mesh convergence sequences, explicit broadening |
+| P4 | JSON reports, CSV path scans, and three command-line entry points |
+| P5 | Native Wannier90 I/O, degeneracy weights, 3D models, and an end-to-end smoke test with real Fe data |
 
-真实材料测试验证文件与计算链路。材料预测仍需检查网格、展宽收敛及位置算符近似。
+The real-material test validates file loading and the calculation pipeline. Material predictions still require checks of mesh convergence, broadening, and the position-operator approximation.
 
-## 安装与验证
+## Installation and validation
 
-Python 3.10 或更新版本：
+Python 3.10 or later:
 
 ~~~bash
 python -m pip install -e ".[dev]"
@@ -27,7 +27,7 @@ python -m pytest
 ohk-validate --n-k 30 --output validation.json
 ~~~
 
-当前 Windows 工作区已准备好项目环境，也可以直接运行：
+The current Windows workspace also has a project environment ready to use:
 
 ~~~powershell
 .\.venv\Scripts\python.exe -m pytest
@@ -56,11 +56,11 @@ print(result.sigma, result.units)
 scan = fermi_scan(model, variant, grid, [-0.5, 0.0, 0.5])
 ~~~
 
-默认 `variant.matrix(basis)` 的投影／截断变体只提供非对角部分；用 `full_matrix` 填充对角元并检查厄米性。也可使用 `CovariantProjector(include_diagonal=True)`。
+By default, `variant.matrix(basis)` supplies only the off-diagonal part for the projected and truncated variants. Use `full_matrix` to fill the diagonal and check Hermiticity, or use `CovariantProjector(include_diagonal=True)`.
 
-`k` 使用笛卡尔坐标，晶格基矢按行排列，`v[j,n,m]` 的首个下标是方向。Haldane 模型包含胞内轨道位置；`AnalyticModel` 的位置默认为零，可用 `orbital_positions` 指定。
+`k` is Cartesian, lattice vectors are rows, and the first index of `v[j,n,m]` is the direction. The Haldane model includes intracell orbital positions. Positions in `AnalyticModel` default to zero and can be supplied through `orbital_positions`.
 
-## 命令行
+## Command line
 
 ~~~bash
 ohc-run --phi 0.7853981633974483 --n-k 60 --mu 0 --output ohc.json
@@ -70,48 +70,46 @@ ohk-validate --n-k 30 --output validation.json
 python examples/haldane.py --n-k 30 --output output/haldane.json
 ~~~
 
-`--phi` 使用弧度。`--variant` 可选 `covariant`、`spectral`、`pezo`、`aca`。路径扫描默认 Γ–K–K′，也可用 `--vertices "0,0;0.333333,0.666667"` 指定倒空间分数坐标。CSV 包含能带与全部 OAM 矩阵元的实、虚部。
+`--phi` is in radians. `--variant` accepts `covariant`, `spectral`, `pezo`, or `aca`. The default scan follows Γ-K-K′. Use `--vertices "0,0;0.333333,0.666667"` to specify fractional reciprocal coordinates. The CSV contains band energies and the real and imaginary parts of every OAM matrix element.
 
-## Wannier90 与材料示例
+## Wannier90 and the material example
 
-`_hr.dat` 不包含晶格，必须另提供按行排列基矢的文本矩阵：
+An `_hr.dat` file does not contain the lattice. Supply a separate text matrix with lattice vectors as rows:
 
 ~~~bash
 ohc-run --hr material_hr.dat --lattice lattice.txt --n-k 12 --mu 9.1839 --output material.json
 ~~~
 
-可下载固定版本的公开 WannierTools Fe 示例。脚本验证压缩包和数据文件的 SHA-256，仅保存在不纳入版本控制的 `.local/fe/`：
+The public WannierTools Fe example can be downloaded at a pinned revision. The script verifies SHA-256 checksums for the archive and data file and stores them only in the unversioned `.local/fe/` directory:
 
 ~~~bash
 python scripts/fetch_fe_example.py
 ohc-run --hr .local/fe/wannier90_hr.dat --lattice .local/fe/lattice.txt --n-k 3 --mu 9.1839 --eta 0.01 --output .local/fe/smoke.json
 ~~~
 
-此命令是粗网格冒烟测试。`--eta` 显式启用正则化。Hamiltonian-only 入口采用胞周期规范与对角位置近似，未导入 `_r.dat`、完整异常位置矩阵或 WS-distance 修正，不能直接等同于完整第一性原理 OHC。Python API 另提供受限的 legacy PythTB 自旋无关、全周期模型适配器。
+This command is a coarse-mesh smoke test. `--eta` explicitly enables regularization. The Hamiltonian-only interface uses the periodic cell gauge and a diagonal-position approximation. It does not import `_r.dat`, the full anomalous-position matrix, or WS-distance corrections, and should not be equated with a complete first-principles OHC calculation. The Python API also provides a limited adapter for spinless, fully periodic legacy PythTB models.
 
-## 数值与单位
+## Numerics and units
 
-- 内部设 `hbar=m_e=e=1`。非对角 OAM 随本征态相位**协变**；对角期望及 Kubo 收缩不变。
-- 电导数值按二维 `e/(2*pi)`、三维 `e/(2*pi*length)` 表示。SI 单位分别为 C、C/m，不是电荷电导的 S。
-- eV/Å 模型恢复 `L/hbar` 还需因子 `m_e E0 a0²/hbar²`；用 `ohk.units.UnitSystem` 指定尺度。
-- 精确简并默认抛出 `DegeneracyError`；近简并保留原值并标记。展宽是显式近似，不默认截断。
-- `convergence_study` 返回实测序列及相邻差，不从少量网格自动声称收敛或给出外推。
-- 完整 Haldane 模型的 `d0` 移动带隙中心，`mu=0` 不保证半填充绝缘态。相变发散研究须选择位于带隙内的化学势。
+- Internally, `hbar=m_e=e=1`. Off-diagonal OAM transforms **covariantly** under eigenstate phase changes; diagonal expectations and Kubo contractions are invariant.
+- Conductivity coefficients are reported in `e/(2*pi)` in 2D and `e/(2*pi*length)` in 3D. Their SI units are C and C/m, respectively, rather than the S used for electrical conductance.
+- Restoring `L/hbar` for an eV/Å model also requires the factor `m_e E0 a0²/hbar²`. Specify the scales with `ohk.units.UnitSystem`.
+- Exact degeneracies raise `DegeneracyError` by default. Near-degenerate values are retained and flagged. Broadening is an explicit approximation; there is no default truncation.
+- `convergence_study` returns measured sequences and successive differences. It does not automatically claim convergence or extrapolate from a few meshes.
+- The complete Haldane model's `d0` term shifts the gap center. `mu=0` does not guarantee a half-filled insulating state. Studies of transition singularities must choose a chemical potential inside the gap.
 
-## 论文关键图复现
+## Reproducing the paper's key figures
 
-```powershell
+~~~powershell
 .\.venv\Scripts\python.exe scripts/reproduce_paper.py --output output/paper-reproduction
-```
+~~~
 
-生成图 1 的 OAM 路径、图 2 的通量扫描和图 3 的费米能扫描，同时输出 PNG/SVG、原始 CSV 和收敛表。
-默认对照 240×240 Bloch 网格与独立 60×60 有限周期格点。通量方向、eV/Å 尺度假设以及相变附近的
-收敛局限，见 [复现说明](docs/reproduction.md)。新环境需先安装 `python -m pip install -e ".[plot]"`。
+This generates the OAM path in Figure 1, the flux sweep in Figure 2, and the Fermi-energy scan in Figure 3, together with PNG/SVG files, raw CSV data, and convergence tables. By default, it compares a 240×240 Bloch mesh with an independent 60×60 finite periodic lattice. See the [reproduction notes](docs/reproduction.md) for the flux convention, the eV/Å scale assumption, and convergence limits near the transition. In a new environment, first run `python -m pip install -e ".[plot]"`.
 
-## 结构与测试
+## Structure and tests
 
-[03 架构设计](docs/design/03-architecture.md) 保留原始分层；历史记录中与实现冲突的内容以 [05 校订记录](docs/design/05-implementation-notes.md) 为准。
+The [original architecture](docs/design/03-architecture.md) retains the L0-L5 layering. Where historical notes conflict with the implementation, the [implementation corrections](docs/design/05-implementation-notes.md) take precedence.
 
-测试覆盖三路径公式对照、三／四带负对照、相位与对称性、有限格点、Chern 相变、独立 Kubo 双重求和、扫描复用对角化、Wannier90 往返与错误输入、单位、报告和 CLI。CI 配置覆盖 Linux/Windows 与 Python 3.10/3.13。外部材料下载不作为离线测试依赖。
+Tests cover three independent formula paths, three-/four-band negative controls, phase covariance and symmetries, finite lattices, the Chern transition, an independent Kubo double sum, diagonalization reuse in scans, Wannier90 round trips and invalid inputs, units, reports, and the CLI. CI is configured for Linux/Windows and Python 3.10/3.13. External material downloads are not required for offline tests.
 
-MIT，见 [LICENSE](LICENSE)。
+MIT; see [LICENSE](LICENSE).

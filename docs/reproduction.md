@@ -1,94 +1,76 @@
-# 论文关键图复现
+# Reproducing the paper's key figures
 
-复现对象为 Gautam & Satpathy, *Phys. Rev. B* **114**, 214403 (2026)，
-[DOI](https://doi.org/10.1103/pd3s-q2z7)，以及公开的
-[arXiv 正文](https://arxiv.org/html/2611.04188v1)。代码直接计算理论模型，没有描摹、数字化或拟合作者曲线。
+The target is Gautam & Satpathy, *Phys. Rev. B* **114**, 214403 (2026),
+[DOI](https://doi.org/10.1103/pd3s-q2z7), and the public
+[arXiv text](https://arxiv.org/html/2611.04188v1). The code computes the theoretical model directly; it does not trace, digitize, or fit the authors' curves.
 
-## 运行
+## Running the calculation
 
-在项目根目录执行：
+From the project root:
 
-```powershell
+~~~powershell
 .\.venv\Scripts\python.exe scripts/reproduce_paper.py --output output/paper-reproduction
-```
+~~~
 
-新环境先安装 `python -m pip install -e ".[plot]"`。默认计算约需数分钟，主要耗时为完整相位扫描。
-不需要联网下载原图；源论文 PDF 已在仓库中。输出包括 300 DPI PNG、SVG、CSV、收敛表与 JSON 清单。
+In a new environment, first run `python -m pip install -e ".[plot]"`. The default calculation takes a few minutes, mostly for the full phase sweep. No online download of the original figures is needed; the source PDF is already in the repository. Outputs include 300 DPI PNG, SVG, CSV, convergence tables, and a JSON manifest.
 
-## 模型与必须说明的约定
+## Model and required conventions
 
-- 参数为 `t1=1`、`t2=0.15`、`M=0.4`，图 1 使用 `phi/pi=0,0.15,0.25,0.5`。
-- 论文正通量对应最低带 Chern 数 `+1`，本库原有正通量对应 `-1`。
-  脚本显式使用 `library_phi=-paper_phi`，不改动已有模型的约定。
-- 路径为 K–Γ–K′，本项目坐标中 K 为倒格矢分数坐标 `(1/3,2/3)`，K′ 取其负。
-- 图 2 每个 k 点占据最低带，即半填充。它不是固定 `mu=0` 扫描；
-  `d0` 移动带隙中心，对应的中心化学势 `-3*t2*cos(phi)` 一并保存在 CSV 中。
-- 图 3 在 `phi=pi/2` 扫描费米能，采用严格的零温 `eps<E_F` 占据。
-- 明确假设能量单位为 **1 eV**，最近邻距离为 **1 Å**。
-  恢复 `L/hbar` 与电导系数的物理尺度因子为 `m_e*E0*a0²/hbar² = 0.13123421196457827`。
-  这是与图 1 和图 3 同时相符的自然单位解释，**正文和公开 TeX 源码没有明确确认这两个尺度**。
-  因而绝对幅值的复现是有此假设的条件性结果，不能把它当成作者明确给出的输入。
-  `--energy-ev` 和 `--length-angstrom` 可改变该假设；原始内部单位数据也保留在 CSV 中。
-- 图 2、3 按论文纵轴画 **负电导**。没有额外拟合系数、平滑、展宽或人为压低尖峰。
+- Parameters are `t1=1`, `t2=0.15`, and `M=0.4`. Figure 1 uses `phi/pi=0,0.15,0.25,0.5`.
+- Positive flux in the paper gives a lowest-band Chern number of `+1`; positive flux in the library's original convention gives `-1`. The script explicitly uses `library_phi=-paper_phi` without changing the model's existing convention.
+- The path is K-Γ-K′. In this project's coordinates, K has fractional reciprocal coordinates `(1/3,2/3)`, and K′ is its negative.
+- Figure 2 occupies the lowest band at every k point: half filling. It is not a scan at fixed `mu=0`. The `d0` term shifts the gap center; the corresponding central chemical potential, `-3*t2*cos(phi)`, is also saved in the CSV.
+- Figure 3 scans the Fermi energy at `phi=pi/2`, using the strict zero-temperature occupation `eps<E_F`.
+- The energy unit is explicitly assumed to be **1 eV**, and the nearest-neighbor distance **1 Å**. The physical scale factor restoring `L/hbar` and the conductivity coefficient is `m_e*E0*a0²/hbar² = 0.13123421196457827`. This natural interpretation agrees with both Figures 1 and 3, but **neither the main text nor the public TeX source explicitly confirms these two scales**. Absolute-amplitude reproduction is therefore conditional on this assumption; it is not presented as an input explicitly supplied by the authors. `--energy-ev` and `--length-angstrom` change this assumption. Raw internal-unit data are retained in the CSV files.
+- Figures 2 and 3 plot **negative conductivity**, following the paper's vertical axes. There is no additional fitted coefficient, smoothing, broadening, or artificial suppression of peaks.
 
-## 两条独立计算路线
+## Two independent calculation routes
 
-曲线使用解析跃迁 Fourier 求和、批量本征分解和 Eq. (16a) 的投影形式。
-批量路线在三／四带模型中与既有单点公共 API 交叉验证。
+Lines use analytic hopping Fourier sums, batched eigendecomposition, and the projected form of Eq. (16a). The batched route is cross-checked against the established single-point public API on three- and four-band models.
 
-圆点来自真正的 **60×60 有限周期格点**：先构造稀疏实空间 Hamiltonian 和包含边界绕行的速度，
-再以离散 Fourier 变换精确分解平移动量扇区，按非对角位置矩阵和对称化 `r×v` 定义求 OAM。
-它不调用 Bloch 模型的 `H(k)`、`dH(k)` 或投影 OAM 公式。
-该方法与小格点的原稠密 oracle 对照通过；FFT 只是有限格点对称性的精确约化。
+Circles come from an actual **60×60 finite periodic lattice**. Sparse real-space Hamiltonian and velocity matrices are built with boundary windings, then exactly decomposed into translation-momentum sectors by a discrete Fourier transform. OAM is obtained from off-diagonal position matrix elements and the symmetrized `r×v` definition. This route does not call the Bloch model's `H(k)`, `dH(k)`, or projected OAM formula. It agrees with the original dense oracle on small lattices. The FFT is an exact symmetry reduction of the finite lattice.
 
-默认连续路线采用 **240×240** 网格，相位图还显示 **120×120** 结果。
-两者均为有限网格近似，没有宣称是解析连续极限。
+The default Bloch route uses a **240×240** mesh; the phase plot also shows **120×120** results. Both are finite-mesh approximations, not claimed analytic continuum limits.
 
-## 输出与读图
+## Outputs and interpretation
 
-| 文件 | 内容 |
+| File | Contents |
 |---|---|
-| `fig1_oam.png/.svg` | 四个通量下的非对角与对角 OAM；另附完整对角范围 |
-| `fig2_phase.png/.svg` | 半填充电导随通量变化；论文窗口与完整对数范围并列 |
-| `fig3_fermi.png/.svg` | 费米能扫描及绝缘平台 |
-| `fig1_bloch.csv`, `fig1_finite.csv` | 路径数据与独立有限格点验证点 |
-| `fig2_phase.csv` | 所有相位、所有网格的原始电导与最小能隙 |
-| `fig3_fermi.csv` | 费米能扫描；内部单位与物理输出均保留 |
-| `convergence.csv` | 30、60、120、240、480 网格的实测序列 |
-| `manifest.json` | 参数、约定、软件版本、源码/PDF 哈希及计算诊断 |
+| `fig1_oam.png/.svg` | Off-diagonal and diagonal OAM at four fluxes, with an additional full-range diagonal panel |
+| `fig2_phase.png/.svg` | Half-filled conductivity versus flux, with the paper's display window beside a full logarithmic view |
+| `fig3_fermi.png/.svg` | Fermi-energy scan and insulating plateau |
+| `fig1_bloch.csv`, `fig1_finite.csv` | Path data and independent finite-lattice checks |
+| `fig2_phase.csv` | Raw conductivity and minimum gap for every phase and mesh |
+| `fig3_fermi.csv` | Fermi-energy scan in both internal and physical output units |
+| `convergence.csv` | Measured sequences for meshes of 30, 60, 120, 240, and 480 |
+| `manifest.json` | Parameters, conventions, software versions, source/PDF hashes, and calculation diagnostics |
 
-图 1 的论文显示窗口会截去谷点极值。例如 `phi=0.15*pi` 时本次计算的
-`L11/hbar` 最小约为 `-6.3983`；完整范围另画在第三个面板中。
-图 2 的精确带隙闭合点被保存为 `NaN`，曲线在这些位置断开，不跨过未定义值连线。
-图 2 左侧圆点为预先规定的 `Δ(phi/pi)=0.05` 子集，右侧显示全部有限格点相位样本，
-包括靠近相变时特别大的网格效应。所有样本均在 CSV 中。
+The paper's Figure 1 display window clips valley extrema. For example, at `phi=0.15*pi`, the minimum calculated `L11/hbar` is approximately `-6.3983`; the third panel shows the full range.
 
-## 实测结果与局限
+Exact gap-closing points in Figure 2 are saved as `NaN`. Curves break at these points rather than connecting across undefined values. Circles in the left panel are the predefined subset with `Δ(phi/pi)=0.05`. The right panel shows every finite-lattice phase sample, including the particularly large mesh effects near the transition. All samples are in the CSV.
 
-| 检查 | 结果 |
+## Measured results and limitations
+
+| Check | Result |
 |---|---|
-| 图 1：60×60 格点与 Bloch 的 OAM 绝对值最大差，内部单位 | `1.56e-13` |
-| 图 1：`max(abs(L12))/hbar`，四个通量依次 | `0.033659, 0.037890, 0.028559, <3e-17` |
-| 图 3：240×240 平台，负电导，单位 e/(2π) | `0.27825232309197084` |
-| 图 3：60×60 独立格点平台 | `0.278252323085247` |
-| 图 3：两种网格在整个费米扫描上的最大差 | `0.0092452 e/(2π)` |
+| Figure 1: maximum difference in OAM absolute values between the 60×60 lattice and Bloch route, internal units | `1.56e-13` |
+| Figure 1: `max(abs(L12))/hbar`, in order of the four fluxes | `0.033659, 0.037890, 0.028559, <3e-17` |
+| Figure 3: 240×240 plateau, negative conductivity in e/(2π) | `0.27825232309197084` |
+| Figure 3: independent 60×60 lattice plateau | `0.278252323085247` |
+| Figure 3: maximum difference between the two meshes across the entire Fermi scan | `0.0092452 e/(2π)` |
 
-图 3 的平台与论文图示约 `0.28` 相符，完整曲线也重现平台、两侧下降及粒子空穴对称性。
-金属区仍有有限 k 点采样差异；不能将平台上的高精度一致推广到整个扫描。
+The Figure 3 plateau agrees with the paper's plotted value of approximately `0.28`. The full curve reproduces the plateau, decay on either side, and particle-hole symmetry. The metallic regions still show finite-k sampling differences; the plateau's high-precision agreement should not be generalized to the whole scan.
 
-相变点为 `phi/pi=±0.1715401788, ±0.8284598212`。靠近这些点的尖峰尚不能用统一有限网格宣称收敛。
-例如 `phi=0.15*pi` 时，60、120、240、480 网格的负电导分别为
-`2.497735, 1.192520, 1.110162, 1.109901 e/(2π)`。
-在 `phi=0.5*pi` 的平台处，240 与 480 网格在显示精度内一致；这只是确定性数值收敛证据，不是统计置信区间。
+Transitions occur at `phi/pi=±0.1715401788, ±0.8284598212`. Peaks near these points cannot yet be claimed converged on a uniform finite mesh. For example, at `phi=0.15*pi`, the negative conductivities on the 60, 120, 240, and 480 meshes are `2.497735, 1.192520, 1.110162, 1.109901 e/(2π)`. At the `phi=0.5*pi` plateau, the 240 and 480 meshes agree to the displayed precision. This is deterministic numerical convergence evidence, not a statistical confidence interval.
 
-论文没有发布原始数值表或生成图的代码，因此本交付不声称逐像素或逐数据点复刻作者的全部采样。
-视觉复核基于仓库 PDF 第 3、4 页以及公开 arXiv 附带的原图，原图仅缓存在 `.local/` 中，没有作为新计算结果交付。
+The paper does not publish original numerical tables or figure-generation code, so this deliverable does not claim pixel-for-pixel or point-for-point replication of all author sampling. Visual inspection used pages 3 and 4 of the repository PDF and the original figures accompanying the public arXiv source. Original images are cached only in `.local/` and are not delivered as new calculation results.
 
-## 可视化与软件来源
+## Visualization and software provenance
 
-使用 Matplotlib、NumPy、SciPy，版本记录在清单中。科学可视化工作流参考：
+Calculations use Matplotlib, NumPy, and SciPy; versions are recorded in the manifest. The scientific visualization workflow references:
 
 Kassis, T., Agarwal, V., He, Y., Patel, D., & Brueckner, A. M. (2026).
 *Scientific Agent Skills: A Library of Procedural Knowledge for Research Agents*.
-[arXiv:2609.00065](https://doi.org/10.48550/arXiv.2609.00065)，检索时最新版为 v2。
-此引用说明所用可视化流程，不构成对计算公式正确性或出版规范的认证。
+[arXiv:2609.00065](https://doi.org/10.48550/arXiv.2609.00065), version v2 at the time of retrieval.
+
+This reference identifies the visualization workflow; it does not certify the calculation formulas or compliance with publication requirements.

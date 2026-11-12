@@ -1,102 +1,102 @@
-# 05 · 实现校订与验收记录
+# 05 · Implementation corrections and validation record
 
-实现保留 03 文档的 L0–L5 分层、模块边界与可插拔 OAM 接口，完成 P0–P5 的可运行链路。01、03、04 保留为设计历史，其中以下结论由原文核对和独立计算替换。
+The implementation retains the L0-L5 layers, module boundaries, and pluggable OAM interface from document 03, completing the runnable P0-P5 pipeline. Documents 01, 03, and 04 remain as design history. The following conclusions supersede their original claims after checking the paper and performing independent calculations.
 
-## 1. Eq. (16b) 的分母与符号
+## 1. Denominators and signs in Eq. (16b)
 
-仓库 PDF 第 3 页与 [论文 Eq. (16b)](https://arxiv.org/html/2611.04188v1) 的求和项使用 **eps_m-eps_n** 分母并带正号。旧笔记把分母转写为 **eps_n-eps_m** 却保留正号，因而引入错误，并非论文印刷错误。
+On page 3 of the repository PDF and in [the paper's Eq. (16b)](https://arxiv.org/html/2611.04188v1), the sum has a **positive** sign with denominators **eps_m-eps_n**. The old notes transcribed the denominators as **eps_n-eps_m** while retaining the positive sign, introducing a transcription error rather than identifying a printing error in the paper.
 
-代码采用 eps_n-eps_m 分母，求和项前为负，与原文等价。`SpectralSum(sign=+1)` 仅保留为错误转写负对照。
+The code uses eps_n-eps_m denominators with a negative sum sign, equivalent to the published expression. `SpectralSum(sign=+1)` is retained only as a negative control for the incorrect transcription.
 
-二带模型的 sum(m != n,n') 为空，因此翻转这项符号既不改变非对角元，也不改变电导。测试在三／四带模型中检查转写错误，在二带模型中检查两者一致。
+For two bands, sum(m != n,n') is empty. Flipping its sign therefore changes neither the off-diagonal matrix elements nor the conductivity. Tests detect the transcription error with three-/four-band models and check equivalence for two bands.
 
-## 2. 相位协变与 Berry 联络
+## 2. Phase covariance and the Berry connection
 
-U -> U D 后，v 和 L 都满足 O -> D† O D。非对角复相位变化；对角期望、非对角绝对值及 Kubo 收缩不变。对称性测试先对齐能带基。
+Under U -> U D, both v and L satisfy O -> D† O D. Off-diagonal complex phases change; diagonal expectations, off-diagonal absolute values, and Kubo contractions are invariant. Symmetry tests align the band bases before comparing them.
 
-单个 k 点的谱数据不能确定对角 Berry 联络。代码仅在提供显式规范固定的本征态导数时计算它。主路径使用零对角导数系数，省略的规范项成对抵消；旧记录中“A_n 与实数 v_nn 叉积必为零”的解释不成立。
+Single-k-point spectral data cannot determine the diagonal Berry connection. The code computes it only when explicit eigenstate derivatives in a specified gauge are provided. The main route uses derivative coefficients with zero diagonal, and the omitted gauge terms cancel in pairs. The old explanation that the cross product of A_n and a real v_nn must vanish is incorrect.
 
-## 3. Pezo、ACA 与迹
+## 3. Pezo, ACA, and the trace
 
-原文 Eq. (16b) 的第一项是中间能带求和。Pezo 对照保留这项，省去对角速度项，因此任意二带模型的非对角元为零。旧骨架误把第一项解释成对角速度项。
+The first term of the published Eq. (16b) is the intermediate-band sum. The Pezo comparison retains this sum and omits the diagonal-velocity term, making off-diagonal elements zero in any two-band model. The original skeleton incorrectly identified the diagonal-velocity term as the first term.
 
-`ACASpec((1,))` 表示一个三维 p 多重态，`ACASpec((0,0))` 表示两个 s 轨道。ACA 自带全部矩阵，组装器不会用完整 OAM 对角元覆盖其零值。
+`ACASpec((1,))` denotes one three-dimensional p multiplet; `ACASpec((0,0))` denotes two s orbitals. ACA supplies the entire matrix, so the assembler does not overwrite its zeros with the complete OAM diagonal.
 
-OAM 没有普遍零迹规则；例如二带 L11=L22 通常非零。
+There is no general zero-trace rule for OAM: for example, L11=L22 in a two-band model is usually nonzero.
 
-## 4. 独立有限周期格点参考
+## 4. Independent finite-periodic-lattice reference
 
-`FiniteLattice` 只从显式跃迁列表构造 H_site 和速度，不调用模型 H(k)、dH(k)，也不调用生产 OAM 公式。
+`FiniteLattice` constructs H_site and velocity from the explicit hopping list alone. It does not call the model's H(k), dH(k), or the production OAM formula.
 
-周期速度使用包含边界绕行信息的真实跃迁位移：
+Periodic velocity uses the actual hopping displacement, including boundary winding:
 
 ~~~text
 v_ij = +i * (R_hop + tau_j - tau_i) * t_ij
 ~~~
 
-把折回后的格点坐标直接代入 -i[r,H] 会在边界出错。静态 `velocity(H,positions)` 辅助函数因此仅适用于开边界。
+Substituting wrapped site coordinates directly into -i[r,H] produces boundary errors. The static `velocity(H,positions)` helper therefore applies only to open boundaries.
 
-由有限格点平移对称性构造各动量扇区，独立对角化，将真实空间速度投影进去，按 r_nm=-i*v_nm/(eps_n-eps_m) 重建非对角位置，再直接计算对称化 r×v。位置对角元在**能量本征基**置零；在格点基直接扣除所有位置对角元会把整个位置算符变成零。
+Finite-lattice translation symmetry defines momentum sectors that are diagonalized independently. The real-space velocity is projected into each sector, off-diagonal position is reconstructed as r_nm=-i*v_nm/(eps_n-eps_m), and symmetrized r×v is evaluated directly. The position diagonal is set to zero in the **energy eigenbasis**; removing every position diagonal in the site basis would erase the entire position operator.
 
-不同动量的等能态按平移量子数定位，比较时投影到同一组 Bloch 态，避免靠全局能量排序猜测匹配。此稠密实现定位为小型验证工具。
+Equal-energy states at different momenta are identified by translation quantum numbers. Comparisons project into the same Bloch states rather than guessing correspondence from a global energy sort. This dense implementation is intended for small reference systems.
 
-## 5. Haldane、Chern 与占据
+## 5. Haldane, Chern numbers, and occupations
 
-完整 Γ 点能量为：
+The complete Γ-point energies are:
 
 ~~~text
 eps_± = 6*t2*cos(phi) ± sqrt(9*t1² + M²)
 ~~~
 
-默认参数 phi=pi/4 时为 [-2.39015309, 3.66294529]，并非旧描述的 ±3.0265。解析导数与中心差分交叉验证。
+At the default parameters and phi=pi/4, they are [-2.39015309, 3.66294529], not the old description's ±3.0265. Analytic derivatives are cross-checked against central differences.
 
-FHS 使用胞周期规范并校正原始基矢的负定向；主值 arg 与 Im(log) 在同一分支等价。默认正通量下最低带 Chern 数为 0 -> -1。
+FHS uses the periodic cell gauge and corrects for the original lattice vectors' negative orientation. The principal arg and Im(log) are equivalent on the same branch. With the default positive-flux convention, the lowest-band Chern number changes from 0 to -1.
 
-d0 把 Dirac 点移至 -3*t2*cos(phi)，所以 mu=0 并非通用的带隙内半填充选择。相变发散测试跟随该带隙中心选取化学势。
+The d0 term shifts the Dirac-point energy to -3*t2*cos(phi), so mu=0 is not a universal half-filled, in-gap choice. The transition-divergence test follows this gap center when choosing the chemical potential.
 
-## 6. Kubo 与单位
+## 6. Kubo normalization and units
 
-归一化网格 sum(w)=1 时：
+For a normalized mesh with sum(w)=1:
 
 ~~~text
 sigma_raw = (2/A_cell) * sum_k w_k sum_n f_n Im sum_m J_nm v_mn / gap_nm²
 ~~~
 
-此原始系数对应 e，表达为 e/(2*pi) 时必须再乘 2*pi。旧笔记把约 -0.17 的原始数直接标为 e/(2*pi)，遗漏了归一化因子。
+This raw coefficient is in units of e. Expressing it in e/(2*pi) requires another factor of 2*pi. The old notes labeled the raw value of approximately -0.17 as e/(2*pi), omitting this normalization factor.
 
-若模型能量尺度为 E0 eV、长度为 a0 Å，则：
+For a model with an energy scale of E0 eV and a length scale of a0 Å:
 
 ~~~text
 L/hbar = L_internal * m_e*(E0*e)*(a0*1e-10)²/hbar²
 ~~~
 
-`UnitSystem` 实现该尺度。二维轨道电导 SI 单位为 C，三维为 C/m，不能标为电荷电导 S。
+`UnitSystem` implements this scale. The SI unit of orbital conductivity is C in 2D and C/m in 3D, not the S used for electrical conductance.
 
-费米扫描缓存能带响应，每个 k 点只对角化一次。结果保留逐点占据数，避免用单个整数描述金属。
+Fermi scans cache band-resolved responses, diagonalizing once per k point. Results retain pointwise occupation counts rather than describing a metal with a single integer.
 
-精确简并默认报错，近简并保留值并标记比例。启用 eta 后 OAM 与 Kubo 使用显式展宽；这是近似，不同变体的有限 eta 结果不必相同，需检查 eta 趋零及网格收敛。收敛工具只返回实测序列及差值，不自动给出未经论证的外推。
+Exact degeneracies raise by default; near-degenerate values are retained and their fraction reported. Enabling eta applies explicit broadening to OAM and Kubo expressions. This is an approximation: different variants need not agree at finite eta, and both eta -> 0 and mesh convergence require checks. The convergence helper returns measured sequences and differences without an unjustified extrapolation.
 
-## 7. 验收证据
+## 7. Validation evidence
 
-Windows / Python 3.13 / NumPy 2.3.5 实测：
+Measured on Windows / Python 3.13 / NumPy 2.3.5:
 
-| 项目 | 结果 |
+| Check | Result |
 |---|---|
-| 自动化测试 | 90 项通过，总体代码覆盖率 90% |
-| Ruff 与格式检查 | 全部通过 |
-| 三／四带三条公式路径 | 基准采样误差 < 5e-16 |
-| 有限格点与 Bloch | 基准误差约 1.33e-15；12×12 测试 < 1e-10 |
-| Chern，phi/pi=0,.15,.25,.5 | 0,0,-1,-1 |
-| Haldane，mu=0，60×60，phi=pi/4 | -1.0616491612557013 e/(2*pi) |
-| 一键验证 n_k=60 | 全部通过，最大残差约 1.33e-15 |
+| Automated tests | 90 passed, 90% overall code coverage |
+| Ruff and formatting checks | All passed |
+| Three formula routes on three-/four-band models | Benchmark residual < 5e-16 |
+| Finite lattice versus Bloch | Benchmark residual about 1.33e-15; 12×12 test < 1e-10 |
+| Chern numbers at phi/pi=0,.15,.25,.5 | 0,0,-1,-1 |
+| Haldane, mu=0, 60×60 mesh, phi=pi/4 | -1.0616491612557013 e/(2*pi) |
+| One-command validation at n_k=60 | All checks passed; maximum residual about 1.33e-15 |
 
-这些是可执行验收和固定网格回归数据，不表示任意材料结果已收敛。完整测试结果以 pytest、ruff 及 CLI 的实际输出为准。
+These are executable validation results and fixed-mesh regression data, not a claim that arbitrary material predictions are converged. The full test outcome is determined by the actual pytest, Ruff, and CLI output.
 
-## 8. Wannier90 材料实测与边界
+## 8. Wannier90 material test and scope
 
-解析器支持二维／三维基矢、Fortran D 指数、简并权重、块完整性检查和往返写出，不默认倍增共轭跃迁。hr.dat 不含晶格基矢，缺失时明确报错。
+The parser supports 2D/3D lattices, Fortran D exponents, degeneracy weights, block completeness checks, and round-trip output. It does not double conjugate hoppings by default. An hr.dat file does not contain lattice vectors, and their absence raises an explicit error.
 
-Fe 验证来自 [WannierTools 固定提交](https://github.com/quanshengwu/wannier_tools/tree/362171ce35450118828c6960a882e3a6d08c73f5/examples/Fe)，由 `scripts/fetch_fe_example.py` 复现；第三方数据不纳入版本控制。
+The Fe test uses [this pinned WannierTools revision](https://github.com/quanshengwu/wannier_tools/tree/362171ce35450118828c6960a882e3a6d08c73f5/examples/Fe) and is reproduced by `scripts/fetch_fe_example.py`. Third-party data are not versioned.
 
 ~~~text
 commit: 362171ce35450118828c6960a882e3a6d08c73f5
@@ -111,4 +111,4 @@ min_gap: 0.0013646982373032301 eV
 sigma: -27.947882312295473 e/(2*pi*model_length)
 ~~~
 
-此结果只证明真实文件经过解析、本征基、OAM、Kubo 到 JSON 的链路运行成功，不是 Fe 的收敛 OHC 预测。hr-only 实现采用胞周期规范及对角位置近似，未实现完整 Wannier 位置矩阵、异常位置或 WS-distance 修正。legacy PythTB 适配器限自旋无关全周期模型；完整位置矩阵、大体系稀疏化及自适应积分是后续扩展。
+This result demonstrates that a real file passes through parsing, eigenbasis construction, OAM, Kubo integration, and JSON output. It is not a converged Fe OHC prediction. The hr-only implementation uses the periodic cell gauge and diagonal-position approximation; it does not implement full Wannier position matrices, anomalous position, or WS-distance corrections. The legacy PythTB adapter is limited to spinless, fully periodic models. Full position matrices, sparse large-system methods, and adaptive integration remain future extensions.
